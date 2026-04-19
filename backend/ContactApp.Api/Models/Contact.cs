@@ -13,4 +13,7 @@ public class Contact
     public int CategoryId { get; set; }
     public int? SubcategoryId { get; set; }
     public string? CustomSubcategory { get; set; }
+
+    public Category? Category {get;set;}
+    public Subcategory? Subcategory {get; set;}
 }

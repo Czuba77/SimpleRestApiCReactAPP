@@ -18,6 +18,7 @@ var signingKey = jwtSection["Key"] ?? throw new InvalidOperationException("Missi
 
 var byteKey = Encoding.UTF8.GetBytes(signingKey);
 
+
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
     {
@@ -34,6 +35,19 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     });
 builder.Services.AddAuthorization();
 
+var frontendUrl = builder.Configuration.GetValue<string>("FrontendUrl") ?? "http://localhost:5173";
+
+builder.Services.AddCors(options => {
+    options.AddPolicy("AllowFrontend",
+    policy =>
+    {
+        policy.WithOrigins(frontendUrl)
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials();
+    });
+});
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -43,6 +57,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
 app.UseHttpsRedirection();
@@ -70,14 +85,19 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.MapGet("/api/contacts", (ApplicationDbContext dbContext, int id) => 
+app.MapGet("/api/contacts/{id}", (ApplicationDbContext dbContext, int id) => 
 {
-    var contact = dbContext.Contacts.Find(id);
+    var contact = dbContext.Contacts
+        .Include(c => c.Category)
+        .Include(c => c.Subcategory)
+        .FirstOrDefault(c => c.Id == id);
 
     if (contact is null)
     {
         return Results.NotFound();
     }
+
+    contact.PasswordHash = string.Empty;
 
     return Results.Ok(contact);
 })
@@ -89,15 +109,107 @@ app.MapGet("/api/categories", (ApplicationDbContext dbContext) => dbContext.Cate
 app.MapGet("/api/subcategories", (ApplicationDbContext dbContext) => dbContext.Subcategories.ToList())
 .WithName("GetSubcategories");
 
+
+app.MapGet("/api/contacts", (ApplicationDbContext dbContext) =>
+{
+    var contacts = dbContext.Contacts
+    .Include(c => c.Category)
+    .Select(c => new
+    {
+        c.Id,
+        c.FirstName,
+        c.LastName,
+        c.Email,
+        CategoryName = c.Category != null ? c.Category.Name : "None"
+    })
+    .ToList();
+    return Results.Ok(contacts);
+}); 
+
+//adding contact
 app.MapPost("/api/contacts", (ApplicationDbContext dbContext, Contact newContact) =>
 {
+    if (dbContext.Contacts.Any(c => c.Email == newContact.Email))
+    {
+        return Results.Conflict("Email already taken.");
+    }
+    if (string.IsNullOrWhiteSpace(newContact.PasswordHash) || newContact.PasswordHash.Length < 9)
+    {
+        return Results.BadRequest("Password should be at least 9 characters long.");
+    }
+
+    newContact.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newContact.PasswordHash);
+
+    var category = dbContext.Categories.Find(newContact.CategoryId);
+    if (category == null)
+        return Results.BadRequest("Invalid category.");
+
+    if (category.Name == "business" && newContact.SubcategoryId == null)
+        return Results.BadRequest("Business category needs subcategory.");
+    else if (category.Name == "other" && string.IsNullOrWhiteSpace(newContact.CustomSubcategory))
+        return Results.BadRequest("'Other' option requires subcategory.");
+
     dbContext.Contacts.Add(newContact);
     dbContext.SaveChanges();
+
+    newContact.PasswordHash = string.Empty;
     return Results.Created($"/api/contacts/{newContact.Id}", newContact);
 })
 .WithName("CreateContact")
-.RequireAuthorization(); 
+.RequireAuthorization();
 
+//editing contact
+app.MapPut("/api/contacts/{id}", (ApplicationDbContext dbContext, int id, Contact updatedContact) =>
+{
+    var contact = dbContext.Contacts.Find(id);
+    if (contact is null) return Results.NotFound();
+
+    if (dbContext.Contacts.Any(c => c.Email == updatedContact.Email && c.Id != id))
+    {
+        return Results.Conflict("Email already taken by another contact.");
+    }
+
+    var category = dbContext.Categories.Find(updatedContact.CategoryId);
+    if (category == null) return Results.BadRequest("Empty category.");
+
+    if (category.Name == "business" && updatedContact.SubcategoryId == null)
+        return Results.BadRequest("Business category needs  subcategory.");
+    else if (category.Name == "other" && string.IsNullOrWhiteSpace(updatedContact.CustomSubcategory))
+        return Results.BadRequest("'Other' option requires subcategory.");
+
+    contact.FirstName = updatedContact.FirstName;
+    contact.LastName = updatedContact.LastName;
+    contact.Email = updatedContact.Email;
+    contact.Phone = updatedContact.Phone;
+    contact.DateOfBirth = updatedContact.DateOfBirth;
+    contact.CategoryId = updatedContact.CategoryId;
+    contact.SubcategoryId = updatedContact.SubcategoryId;
+    contact.CustomSubcategory = updatedContact.CustomSubcategory;
+
+    if (!string.IsNullOrWhiteSpace(updatedContact.PasswordHash))
+    {
+        if (updatedContact.PasswordHash.Length < 9) return Results.BadRequest("Password should be at least 9 characters long.");
+         contact.PasswordHash = BCrypt.Net.BCrypt.HashPassword(updatedContact.PasswordHash);
+    }
+
+    dbContext.SaveChanges();
+    return Results.NoContent();
+})
+.WithName("UpdateContact")
+.RequireAuthorization();
+
+app.MapDelete("/api/contacts/{id}", (ApplicationDbContext dbContext, int id) =>
+{
+    var contact = dbContext.Contacts.Find(id);
+    if (contact is null) return Results.NotFound();
+
+    dbContext.Contacts.Remove(contact);
+    dbContext.SaveChanges();
+
+    return Results.NoContent();
+})
+.WithName("DeleteContact")
+.RequireAuthorization();
 
 //Registartion endpoint
 app.MapPost("/api/auth/register", (ApplicationDbContext dbContext, AppUser requestUser) =>
@@ -137,6 +249,9 @@ app.MapPost("/api/auth/login", (ApplicationDbContext dbContext, IConfiguration c
             SecurityAlgorithms.HmacSha256Signature
         )
     };
+
+
+
 
     var tokenHandler = new System.IdentityModel.Tokens.Jwt.JwtSecurityTokenHandler();
     var securityToken = tokenHandler.CreateToken(tokenDescriptor);
