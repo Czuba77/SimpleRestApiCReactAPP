@@ -2,6 +2,7 @@ using Models;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 
@@ -11,7 +12,34 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite
 // Add services to the container.
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddSwaggerGen(c =>
+{
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "ContactApp API", Version = "v1" });
+
+    c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+    {
+        Description = "Enable JWT authentication in format Bearer {your_token}",
+        Name = "Authorization",
+        In = ParameterLocation.Header,
+        Type = SecuritySchemeType.ApiKey,
+        Scheme = "Bearer"
+    });
+
+    c.AddSecurityRequirement(new OpenApiSecurityRequirement
+    {
+        {
+            new OpenApiSecurityScheme
+            {
+                Reference = new OpenApiReference
+                {
+                    Type = ReferenceType.SecurityScheme,
+                    Id = "Bearer"
+                }
+            },
+            Array.Empty<string>()
+        }
+    });
+});
 
 var jwtSection = builder.Configuration.GetSection("Jwt");
 var signingKey = jwtSection["Key"] ?? throw new InvalidOperationException("Missing JWT key.");
@@ -57,10 +85,10 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseHttpsRedirection();
 app.UseCors("AllowFrontend");
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseHttpsRedirection();
 
 using (var scope = app.Services.CreateScope())
 {
@@ -74,7 +102,7 @@ using (var scope = app.Services.CreateScope())
         var catOther = new Category { Name = "other" };
 
         dbContext.Categories.AddRange(catBusiness, catPrivate, catOther);
-        dbContext.SaveChanges(); // Zapisujemy, żeby kategorie wygenerowały sobie numery ID
+        dbContext.SaveChanges();
 
         var sub1 = new Subcategory { Name = "boss", CategoryId = catBusiness.Id };
         var sub2 = new Subcategory { Name = "client", CategoryId = catBusiness.Id };
