@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import axiosInstance from "../api/axios";
+import { Link } from 'react-router-dom';
 
 export default function ContactList() {
     const [contacts, setContacts] = useState([]);
@@ -18,6 +19,10 @@ export default function ContactList() {
                 {contacts.map(contact => (
                     <li key={contact.id} style={{ background: '#fff', margin: '10px 0', padding: '10px', borderRadius: '5px' }}>
                         <strong>{contact.firstName} {contact.lastName}</strong> - {contact.email} ({contact.categoryName})
+                        <br/>
+                        <Link to={`/contact/${contact.id}`} style={{ fontSize: '0.9em', color: '#0066cc', marginTop: '5px', display: 'inline-block' }}>
+                            View Details
+                        </Link>
                     </li>
                 ))}
             </ul>

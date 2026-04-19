@@ -1,6 +1,8 @@
 import {BrowserRouter,Routes,Route,Link} from 'react-router-dom';
 import ContactList from './pages/ContactList';
 import Login from './pages/Login';
+import ContactForm from './pages/ContactForm';
+import ContactDetails from './pages/ContactDetails';
 
 function App(){
   const token = localStorage.getItem('token');
@@ -13,6 +15,7 @@ function App(){
     <BrowserRouter>
             <nav style={{ background: '#fff', padding: '15px', marginBottom: '20px', borderRadius: '5px', display: 'flex', gap: '15px' }}>
         <Link to="/">Main page</Link>
+        {token && <Link to="/add">Add Contact</Link>}
         {!token ? (
           <Link to="/login">Log in</Link>
         ) : (
@@ -23,6 +26,9 @@ function App(){
       <Routes>
         <Route path="/" element={<ContactList />} />
         <Route path="/login" element={<Login />} />
+        <Route path="/add" element={token ? <ContactForm /> : <h2>Access Denied - Please Login</h2>} />
+        <Route path="/edit/:id" element={token ? <ContactForm /> : <h2>Access Denied</h2>} />
+        <Route path="/contact/:id" element={<ContactDetails />} />
       </Routes>
     </BrowserRouter>
   )
