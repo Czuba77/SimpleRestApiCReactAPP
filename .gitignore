@@ -1,13 +1,24 @@
-bin/
-obj/
-.vs/
+# C# /.NET
+[Bb]in/
+[Oo]bj/
+
+# Node.js
+node_modules/
+
 .vscode/
 
-*.user
-*.suo
+.env
+.env.local
 
+# Sqllite
 *.db
-*.db-shm
-*.db-wal
+*.sqlite
+*.sqlite3
+app.db
 
-*.log
+# OSX (Apple)
+.DS_Store
+
+# Front-end (React build output)
+dist/
+build/
