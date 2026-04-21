@@ -1,81 +1,102 @@
-# Projekt Rekrutacyjny NetPC
+# NetPC Recruitment Project: Contact Management System
 
-## Specyfikacja Techniczna
+A full-stack Single Page Application (SPA) developed for contact management. The system implements authentication, role-based access control, and a relational database structure for contact categorization.
 
-Aplikacja typu Single Page Application (SPA) zrealizowana w oparciu o technologię React (Frontend) oraz ASP.NET Core Minimal API (Backend). Służy do zarządzania książką kontaktów z uwzględnieniem ról (niezalogowany/zalogowany) i słowników bazy danych.
+## Technical Specification
 
-### 1. Wykorzystane technologie i biblioteki
+### Backend
+* **Runtime:** .NET 9.0 (ASP.NET Core Minimal API)
+* **ORM:** Entity Framework Core (SQLite)
+* **Encryption:** BCrypt.Net-Next
+* **Authentication:** JWT Bearer (Microsoft.AspNetCore.Authentication.JwtBearer)
+* **API Documentation:** Swashbuckle / Swagger (Interface available at http://localhost:5170/swagger)
 
-**Backend (C# / .NET 9.0):**
-*   **ASP.NET Core Minimal API** - rdzeń aplikacji dostarczający architekturę REST API.
-*   **Entity Framework Core (SQLite)** (`Microsoft.EntityFrameworkCore.Sqlite`) - ORM do obsługi relacyjnej bazy danych bez konieczności stawiania zewnętrznego serwera (baza w pliku).
-*   **BCrypt.Net-Next** (`BCrypt.Net-Next`) - biblioteka do bezpiecznego haszowania haseł (zarówno użytkowników systemu, jak i zapisywanych kontaktów) wg standardu BCrypt.
-*   **JWT Bearer** (`Microsoft.AspNetCore.Authentication.JwtBearer`) - obsługa autoryzacji i uwierzytelniania w oparciu o tokeny wbudowane w framework.
-*   **Swashbuckle / Swagger** (`Swashbuckle.AspNetCore`) - automatyczne generowanie dokumentacji i interfejsu testowego API.
-
-**Frontend (JavaScript / React 19):**
-*   **React** + **Vite** (`react`, `vite`) - silnik widoków (SPA) oraz bundler i serwer deweloperski.
-*   **React Router DOM** (`react-router-dom`) - obsługa routingu po stronie klienta (nawigacja bez przeładowywania pełnej witryny).
-*   **Axios** (`axios`) - klient HTTP używany do komunikacji z API (wykorzystujący mechanizm interceptorów do automatycznego wstrzykiwania JWT `Bearer`).
-
----
-
-### 2. Opis klas i metod (Backend - Minimal API)
-
-**Modele zachowane w Bazie Danych (`Models/`):**
-*   `AppUser` - klasa reprezentująca weryfikowalnego użytkownika systemu (pola: Id, Email, PasswordHash).
-*   `Category` i `Subcategory` - słownikowe reprezentacje typów kontaktów. Kategoria może mieć wiele podkategorii (relacja 1:N).
-*   `Contact` - główny model kontaktu przechowujący m.in. imię, nazwisko, unikalny email, numer telefonu, datę urodzenia, szyfrowane hasło oraz asocjacyjne klucze obce.
-*   `ApplicationDbContext` - dziedziczy po `DbContext`. Zapewnia silnik migracji tabel we wgranym środowisku. Odpowiada także za zasilenie tabeli domyślnymi wpisami podczas pierwszego rozruchu dzięki `Database.EnsureCreated()`.
-
-**Endpointy REST (Opakowane w `Program.cs`):**
-Aplikacja wykorzystuje minimalistyczne wzorce mapowania (`app.Map`):
-*   `POST /api/auth/register` oraz `POST /api/auth/login` - metody szyfrujące autoryzację, wystawiające tokeny JWT.
-*   `GET /api/contacts` - ładuje podstawową listę kontaktów dla niezalogowanych użytkowników. Relacyjnie uzupełnia nazwę wybranej Kategorii (Join).
-*   `GET /api/contacts/{id}` - szuka w bazie ID i oddaje pełną referencję wraz z rozbudowanymi danymi.
-*   `POST /api/contacts` **(Tylko Zalogowani)** - weryfikuje unikalność adresu `Email`, sprawdza, czy hasło zachowało minimum bezpieczeństwa (9 znaków). Haszkuje nowe wpisy algorytmem i asocjuje wybrane Podkategorie z bazy.
-*   `PUT /api/contacts/{id}` **(Tylko Zalogowani)** - aktualizuje wskazany kontakt metodą Patching'u.
-*   `DELETE /api/contacts/{id}` **(Tylko Zalogowani)** - trwale usuwa strukturę po weryfikacji toku uwierzytelniania.
-*   `GET /api/categories` oraz `GET /api/subcategories` - metody ładujące zasoby do selektorów (`<select>`) w procesie kreacji w React.
+### Frontend
+* **Library:** React 19
+* **Build Tool:** Vite
+* **Routing:** React Router DOM
+* **HTTP Client:** Axios (with Interceptors for JWT management)
 
 ---
 
-### 3. Struktura frontendu (React)
+## System Functionalities
 
-Kluczowe komponenty aplikacji katalogowane w folderze `src/pages`:
-*   **`App.jsx`** - główny punkt wejścia i punkt decyzyjny ścieżek `react-router-dom`. Realizuje blokady dostępu analizując wejścia na instancje takie jak `/add` przez uwarunkowane `localStorage.getItem('token')`.
-*   **`ContactList.jsx`** - ładuje i mapuje dane do podstawowej wersji widocznej z góry bez naruszenia dostępu API. 
-*   **`ContactDetails.jsx`** - podproces analizujący `useParams()`. Daje dostęp do modyfikacji bądź usunięcia. Wykorzystuje hak `useEffect` z systemem *Loadingu* dla eliminacji wizualnych pustych skoków podczas parsowania JSON-a.
-*   **`ContactForm.jsx`** - podwójny formularz. Identyfikuje swoje zachowanie (Dodaj vs Edytuj) skanując URL z paska.
+* **Access Control:**
+    * **Unauthenticated Users:** Authorized to view the basic contact list and individual contact details.
+    * **Authenticated Users:** Authorized for full CRUD (Create, Read, Update, Delete) operations.
+* **Data Management:**
+    * Hierarchical categorization using Category and Subcategory relationships (1:N).
+    * Email uniqueness validation.
+    * Minimum password length requirement (9 characters).
+* **Interface:** Single Page Application architecture with state-driven UI and asynchronous data fetching.
 
 ---
 
-### 4. Sposób kompilacji i uruchomienia aplikacji
+## Backend Architecture
 
-Platforma używa oddzielnych, ale równolegle komunikujących się serwerów na porcie `7278` (API) oraz `5173` (Interfejs użytkownika).
+### Data Models
+* **AppUser**: System administrator credentials (Id, Email, PasswordHash).
+* **Contact**: Primary entity containing Name, Surname, Email, Phone, Birthdate, and Hashed Password.
+* **Category & Subcategory**: Relational dictionary tables for contact classification.
+* **ApplicationDbContext**: Handles SQLite migrations and automated database initialization.
 
-**Pierwszy Terminal - Uruchomienie Backend (Serwer API):**
-1. Otwórz wiersz poleceń i wskaż ścieżkę do katalogu serwera:
-   ```bash
-   cd backend/ContactApp.Api
-   ```
-2. Skompiluj projekt w razie braku bibliotek i go odpal (wszystkie pobrania i budowy wyciągnie sam rdzeń interfejsu .NET):
-   ```bash
-   dotnet run
-   ```
-*(Aplikacja automatycznie przy pierwszym uruchomieniuo założy nowy fizyczny i uzupełniony słownik w pliku `contacts.db`)*
+### API Endpoints
 
-**Drugi Terminal - Uruchomienie Frontendu (Interfejs HTML):**
-1. Otwórz całkowicie równe i nowe okno terminala, wjeżdżając do skryptów w Reakcie:
-   ```bash
-   cd frontend/ContactApp.Ui
-   ```
-2. Pobierz strukturę zależności menadżera paczek node do lokalnego drzewa:
-   ```bash
-   npm install
-   ```
-3. Wystartuj deweloperski serwer skryptowy (Vite):
-   ```bash
-   npm run dev
-   ```
-4. Aplikacja ukaże się w przeglądarce pod wyrenderowanym w oknie wpisania portem – domyślnie skrót na klawiaturze `o` + `enter` lub otwierając przeglądarkę pod adresem: `http://localhost:5173/`.
+| Method | Endpoint | Access | Description |
+| :--- | :--- | :--- | :--- |
+| `POST` | `/api/auth/register` | Public | Register new system user |
+| `POST` | `/api/auth/login` | Public | Authenticate user and issue JWT |
+| `GET` | `/api/contacts` | Public | Retrieve basic contact list |
+| `GET` | `/api/contacts/{id}` | Public | Retrieve full contact details |
+| `POST` | `/api/contacts` | **Auth** | Create new contact record |
+| `PUT` | `/api/contacts/{id}` | **Auth** | Update existing contact record |
+| `DELETE` | `/api/contacts/{id}` | **Auth** | Remove contact record |
+
+---
+
+## Frontend Structure
+
+Components are located within the `src/pages` directory:
+* **App.jsx**: Main routing configuration. Implements route guards to restrict access to administrative paths based on the presence of a JWT in `localStorage`.
+* **ContactList.jsx**: Fetches and renders the primary contact directory.
+* **ContactDetails.jsx**: Manages individual record display using the `useParams` hook.
+* **ContactForm.jsx**: A dual-purpose component that handles both creation and modification logic based on the URL context.
+
+---
+
+## Installation and Deployment
+
+The application requires two concurrent processes for the Backend and Frontend.
+
+### 1. Backend (API)
+1.  Navigate to the API directory:
+    ```bash
+    cd backend/ContactApp.Api
+    ```
+2.  Execute the application:
+    ```bash
+    dotnet run
+    ```
+    *Note: The system automatically generates `contacts.db` and populates dictionary data upon the first execution.*
+3.  **API Documentation:** The Swagger interactive interface is accessible at `http://localhost:5170/swagger`.
+
+### 2. Frontend (React)
+1.  Navigate to the UI directory:
+    ```bash
+    cd frontend/ContactApp.Ui
+    ```
+2.  Install required packages:
+    ```bash
+    npm install
+    ```
+3.  Start the development server:
+    ```bash
+    npm run dev
+    ```
+4.  Access the application at: `http://localhost:5173/`
+
+---
+
+## Security Measures
+1.  **JWT Interceptors**: Axios is configured to automatically include the `Authorization: Bearer` header in outgoing requests if a valid token is stored.
+2.  **Password Security**: All credentials (system users and contacts) are processed using the BCrypt hashing algorithm. Plain-text passwords are not stored in the database.

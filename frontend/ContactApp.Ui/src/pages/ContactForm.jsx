@@ -19,6 +19,7 @@ export default function ContactForm() {
     
     const [errorMsg, setErrorMsg] = useState('');
 
+    // If id exists, we are in edit mode - load existing contact data
     useEffect(() =>{
         if(id){
                 axiosInstance.get(`/contacts/${id}`)

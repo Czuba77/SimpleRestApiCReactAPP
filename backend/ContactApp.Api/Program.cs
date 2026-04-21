@@ -13,7 +13,8 @@ builder.Services.AddDbContext<ApplicationDbContext>(options => options.UseSqlite
 // Learn more about configuring OpenAPI at https://aka.ms/aspnet/openapi
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
-{
+{   
+    //for jwt authentication in swagger
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "ContactApp API", Version = "v1" });
 
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -25,6 +26,7 @@ builder.Services.AddSwaggerGen(c =>
         Scheme = "Bearer"
     });
 
+    
     c.AddSecurityRequirement(new OpenApiSecurityRequirement
     {
         {
@@ -94,7 +96,7 @@ using (var scope = app.Services.CreateScope())
 {
     var dbContext = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     dbContext.Database.EnsureCreated();
-
+    // Seed categories and subcategories if they don't exist
     if (!dbContext.Categories.Any())
     {
         var catBusiness = new Category { Name = "business" };
@@ -112,7 +114,7 @@ using (var scope = app.Services.CreateScope())
         dbContext.SaveChanges();
     }
 }
-
+//contact
 app.MapGet("/api/contacts/{id}", (ApplicationDbContext dbContext, int id) => 
 {
     var contact = dbContext.Contacts
@@ -137,7 +139,7 @@ app.MapGet("/api/categories", (ApplicationDbContext dbContext) => dbContext.Cate
 app.MapGet("/api/subcategories", (ApplicationDbContext dbContext) => dbContext.Subcategories.ToList())
 .WithName("GetSubcategories");
 
-
+//contacts
 app.MapGet("/api/contacts", (ApplicationDbContext dbContext) =>
 {
     var contacts = dbContext.Contacts
@@ -226,6 +228,7 @@ app.MapPut("/api/contacts/{id}", (ApplicationDbContext dbContext, int id, Contac
 .WithName("UpdateContact")
 .RequireAuthorization();
 
+//deleting contact
 app.MapDelete("/api/contacts/{id}", (ApplicationDbContext dbContext, int id) =>
 {
     var contact = dbContext.Contacts.Find(id);
@@ -256,6 +259,7 @@ app.MapPost("/api/auth/register", (ApplicationDbContext dbContext, AppUser reque
     return Results.Ok("Successfully registered.");
 });
 
+//Login endpoint
 app.MapPost("/api/auth/login", (ApplicationDbContext dbContext, IConfiguration configuration, AppUser requestUser) => 
 {
     var existingUser = dbContext.Users.FirstOrDefault(x => x.Email == requestUser.Email);
