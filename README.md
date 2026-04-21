@@ -1,4 +1,4 @@
-# NetPC Recruitment Project: Contact Management System
+# Contact Management System
 
 A full-stack Single Page Application (SPA) developed for contact management. The system implements authentication, role-based access control, and a relational database structure for contact categorization.
 
